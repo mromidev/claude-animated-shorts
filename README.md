@@ -11,6 +11,7 @@ Proven on **The Bridge That Fell for a Song**, a 67 s short about the 1831 Broug
 |---|---|
 | `SKILL.md` | The skill: the full pipeline, every rule, every fix, and the final look values |
 | `templates/bridge/` | The full source of the bridge short: world, characters, ink, lens blur, grade, story/camera |
+| `templates/voice/eleven_voice.py` | ElevenLabs narration: one clip per script beat, word timings from the API, `voice.wav` + `words.json` + `beats.json` |
 | `templates/audio/` | The synthesized sound: SFX, march music, the mix with ducking and loudness |
 | `templates/scripts/` | Stills, side-by-side sheets, shot merge and frame-by-frame QA helpers |
 | `references/STYLE_BIBLE.md` | The script and visual formula measured from 20 reference shorts |
@@ -21,6 +22,7 @@ Proven on **The Bridge That Fell for a Song**, a 67 s short about the 1831 Broug
 ## Install
 1. Copy this folder to `~/.claude/skills/cartoon-3d-short/` (clone it there, or download the ZIP).
 2. You need [Remotion](https://www.remotion.dev/) with `@remotion/three`, plus Node, Python 3 and ffmpeg.
+   For narration, an [ElevenLabs](https://elevenlabs.io/) account: `export ELEVENLABS_API_KEY=...` in your terminal (never put the key in a file).
 3. In Claude Code, say: *"Use the cartoon short skill and make a short about …"*.
 
 Claude then follows `SKILL.md`: topic and facts, then script, then voice, then the shot plan in `story.ts`, then stills, then renders. Agents check your frames against the reports and the frames, and you get the final 2K render and sound mix.

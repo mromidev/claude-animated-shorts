@@ -39,9 +39,20 @@ User rules that apply:
    - **Consequence:** the rule it created.
    - **Callback twist:** the ending.
    - Never describe on screen what the viewer already sees.
-3. **Voice.** Record or generate `voice.wav`, then make its word timings `words.json` (any speech-to-text with word times).
-   - Put them in the project folder, e.g. `~/bridge-short/voice/`.
-   - Hand-fix the word timings. Everything is timed to words.json.
+3. **Voice.** `voice.wav` + its word timings `words.json` in the project folder, e.g. `~/bridge-short/voice/`. Everything is timed to words.json.
+   - **ElevenLabs (preferred):** write the script as beat lines `b01 First sentence.` (one beat = one sentence or two), then
+     `python templates/voice/eleven_voice.py SCRIPT.md --voice <voice_id> --out ~/<name>-short/voice`.
+     It makes one clip per beat with the API's own word timestamps and assembles `voice.wav`, `words.json` and `beats.json`
+     (beat start/end in seconds and frames: time the shots to these). No speech-to-text pass, no hand-fixed timings.
+   - The key comes ONLY from the `ELEVENLABS_API_KEY` environment variable. Ask the user to `export` it in their terminal;
+     never write it into a file, script, memory or commit. If they paste it in chat, use it inline in the command and suggest rotating it afterwards.
+   - `--list-voices` shows the account's voices. Several ids comma-separated (`--voice a,b,c`) make one folder per voice
+     (`voice/v_<id>/`) to compare: mux each over the same picture and let the user pick by ear.
+   - A bad line: fix the text (spell words as they are pronounced if needed) and redo only it with `--only b03`; the timeline is rebuilt.
+   - Once the picture is timed, keep it: pass `--starts starts.json` (`{"b02": 6.556, ...}`, the old `t0`s from beats.json) so redone
+     beats land on the same frames, and `--min-frames <composition frames>` so voice.wav matches the video length.
+   - Non-English scripts: keep the default `eleven_multilingual_v2`. Loudness differs between voices: re-match the final mix to the target.
+   - Otherwise: record `voice.wav` yourself and make `words.json` (`[{"w", "s", "e"}]`, seconds) with any speech-to-text that gives word times, then hand-fix it.
 4. **Shot plan** in `story.ts`: copy `templates/bridge/` (the final bridge source, same as `src/videos/bridge/` of your Remotion project) to `src/videos/<name>/`, register a new composition next to `BridgeShort` in `src/Root.tsx`, and rename it.
    - `SHOTS`: id, a/b frames, light day/golden, crowd mode, `tau` story time.
    - `XFADE`: crossfades at place/time changes.
