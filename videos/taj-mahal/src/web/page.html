@@ -1,0 +1,52 @@
+<title>Taj Mahal ke Tedhe Minar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Hindi&family=Mukta:wght@400;600&display=swap">
+<style>
+  /* Layout: a 9:16 film frame centred on a dark ground; a slim control dock below; a big start button on top. */
+  :root {
+    --ground: #0f0d12; --ink: #f7f1e6; --gold: #e8b85a; --dim: #b8ad9c; --glass: rgba(20, 16, 24, 0.66);
+    --display: "Tiro Devanagari Hindi", "Noto Serif Devanagari", Georgia, serif;
+    --ui: "Mukta", "Noto Sans Devanagari", system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--ui); overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  #frame { position: relative; height: 100%; aspect-ratio: 9 / 16; max-width: 100%; overflow: hidden; background: #000; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .veil { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+  #flash { background: #fff; } #fade { background: #000; }
+  #start {
+    position: absolute; inset: 0; display: grid; place-content: center; gap: 14px; text-align: center; cursor: pointer;
+    background: radial-gradient(circle at 50% 45%, rgba(15,13,18,.35), rgba(15,13,18,.85)); border: 0; color: var(--ink); font-family: var(--ui);
+  }
+  #start[hidden] { display: none; }
+  #start .k { font-family: var(--display); font-size: clamp(28px, 5.5vh, 56px); line-height: 1.2; text-wrap: balance; }
+  #start .l { font-size: 14px; letter-spacing: .3em; color: var(--gold); text-transform: uppercase; }
+  #start .go { justify-self: center; margin-top: 8px; font: 600 18px/1 var(--ui); padding: 14px 26px; border-radius: 999px; background: var(--gold); color: #1d1408; }
+  #dock {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 8px; background: var(--glass);
+    backdrop-filter: blur(10px); border-radius: 14px; max-width: calc(100% - 24px); z-index: 5;
+  }
+  #dock button { font: 600 14px/1 var(--ui); color: var(--ink); background: transparent; border: 1px solid rgba(247,241,230,.18); border-radius: 9px; padding: 9px 12px; min-height: 38px; cursor: pointer; }
+  #dock button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+  #dock button:focus-visible, #start:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  #bar { flex-basis: 100%; height: 4px; background: rgba(247,241,230,.14); border-radius: 2px; position: relative; cursor: pointer; }
+  #bari { position: absolute; inset: 0 auto 0 0; background: var(--gold); border-radius: 2px; }
+  body.rec #dock { opacity: 0; pointer-events: none; }
+</style>
+
+<div id="stage"><div id="frame">
+  <canvas id="c" aria-label="Taj Mahal 3D film"></canvas>
+  <div id="flash" class="veil"></div><div id="fade" class="veil"></div>
+  <button id="start" type="button"><span class="l">3D · हिंदी</span><span class="k">ताज महल के टेढ़े मीनार</span><span class="go">▶ देखें</span></button>
+</div></div>
+<div id="dock" role="toolbar" aria-label="Film controls">
+  <button id="play" type="button">▶ चलाएँ</button>
+  <button id="again" type="button">⟲ फिर से</button>
+  <button id="hd" type="button" aria-pressed="true">Full HD</button>
+  <button id="rec" type="button">रिकॉर्ड मोड</button>
+  <div id="bar" title="Seek"><i id="bari"></i></div>
+</div>
+<script>/*__SCRIPT__*/</script>

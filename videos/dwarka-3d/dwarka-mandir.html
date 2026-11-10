@@ -1,0 +1,557 @@
+<title>Dwarkadhish Jagat Mandir</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Hindi&family=Mukta:wght@400;600&display=swap">
+<style>
+  /* Layout: one full-bleed cinematic stage (optional 9:16 frame), captions low on the frame, a slim control dock. */
+  :root {
+    --night: #0d0b14;      /* page ground around the stage */
+    --ink: #f6efe2;        /* text on the film */
+    --saffron: #f29a2e;    /* the dhwaja's saffron: the only accent */
+    --dim: #b9ad99;        /* secondary text */
+    --glass: rgba(18, 14, 24, 0.62);
+    --display: "Tiro Devanagari Hindi", "Noto Serif Devanagari", Georgia, serif;
+    --ui: "Mukta", "Noto Sans Devanagari", system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { background: var(--night); color: var(--ink); font-family: var(--ui); overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  #frame { position: relative; width: 100%; height: 100%; overflow: hidden; background: #000; }
+  body.portrait #frame { height: 100%; width: auto; aspect-ratio: 9 / 16; max-width: 100%; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #cap {
+    position: absolute; left: 0; right: 0; bottom: 27%; display: grid; justify-items: center; gap: 6px;
+    padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+    text-align: center; pointer-events: none; transition: opacity .6s ease;
+  }
+  #cap .t { font-family: var(--display); font-size: clamp(22px, 4.2vh, 44px); line-height: 1.25; text-wrap: balance; text-shadow: 0 2px 14px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.8); max-width: 22ch; }
+  #cap .s { font-size: clamp(13px, 1.9vh, 19px); color: var(--dim); letter-spacing: .04em; text-shadow: 0 1px 8px rgba(0,0,0,.8); max-width: 34ch; }
+  #title { position: absolute; top: 6%; left: 0; right: 0; text-align: center; pointer-events: none; transition: opacity 1.2s ease; }
+  #title .k { font-family: var(--display); font-size: clamp(28px, 6vh, 64px); text-shadow: 0 3px 18px rgba(0,0,0,.6); }
+  #title .l { font-size: clamp(12px, 1.8vh, 17px); letter-spacing: .32em; text-transform: uppercase; color: var(--saffron); }
+  #dock {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; padding: 8px;
+    background: var(--glass); backdrop-filter: blur(10px); border-radius: 14px; max-width: calc(100% - 24px); z-index: 5;
+  }
+  #dock button {
+    font: 600 14px/1 var(--ui); color: var(--ink); background: transparent; border: 1px solid rgba(246,239,226,.18);
+    border-radius: 9px; padding: 9px 12px; cursor: pointer; min-height: 38px;
+  }
+  #dock button[aria-pressed="true"] { border-color: var(--saffron); color: var(--saffron); }
+  #dock button:focus-visible { outline: 2px solid var(--saffron); outline-offset: 2px; }
+  #bar { width: 100%; height: 4px; background: rgba(246,239,226,.14); border-radius: 2px; position: relative; order: 9; cursor: pointer; }
+  #bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--saffron); border-radius: 2px; }
+  #hint { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font-size: 13px; color: var(--dim); background: var(--glass); padding: 6px 12px; border-radius: 8px; transition: opacity .8s; z-index: 5; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
+  body.rec #dock, body.rec #hint { opacity: 0; pointer-events: none; }
+  body.rec #cap { bottom: 11%; }
+  #err[hidden] { display: none; }
+  #err { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--dim); }
+  @media (prefers-reduced-motion: reduce) { #cap, #title, #hint { transition: none; } }
+</style>
+
+<div id="stage"><div id="frame">
+  <canvas id="c" aria-label="Dwarkadhish temple 3D tour"></canvas>
+  <div id="title"><div class="l">द्वारका · गुजरात</div><div class="k">द्वारकाधीश जगत मंदिर</div></div>
+  <div id="cap"><div class="t"></div><div class="s"></div></div>
+</div></div>
+<div id="hint">रिकॉर्ड मोड में बटन छिप जाते हैं। वापस लाने के लिए स्क्रीन पर टैप करें।</div>
+<div id="dock" role="toolbar" aria-label="Tour controls">
+  <button id="play" type="button">⏸ रोकें</button>
+  <button id="again" type="button">⟲ फिर से</button>
+  <button id="txt" type="button" aria-pressed="true">टेक्स्ट</button>
+  <button id="snd" type="button" aria-pressed="false">आवाज़</button>
+  <button id="fmt" type="button" aria-pressed="true">9:16</button>
+  <button id="rec" type="button">रिकॉर्ड मोड</button>
+  <div id="bar" title="Seek"><i></i></div>
+</div>
+<div id="err" hidden>3D नहीं चल पाया: इस ब्राउज़र में WebGL बंद है। Chrome या Safari में खोलें।</div>
+
+<script type="module">
+import * as THREE from "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js";
+
+// ------------------------------------------------------------------ setup
+const canvas = document.getElementById("c");
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" }); }
+catch (e) { document.getElementById("err").hidden = false; throw e; }
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, 9 / 16, 0.3, 4000);
+const fog = new THREE.Fog(0xcfd8e6, 180, 1400); scene.fog = fog;
+
+const rng = (s => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(7);
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp01 = x => Math.max(0, Math.min(1, x));
+const smooth = x => { x = clamp01(x); return x * x * (3 - 2 * x); };
+const ctex = (w, h, draw, rep) => { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; if (rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]); } return t; };
+const std = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0, ...o });
+
+// merge many (geometry, matrix) pairs into one non-indexed geometry: one draw call per spire
+function merge(parts) {
+  const pos = [], nor = [], uv = [];
+  const v = new THREE.Vector3(), n = new THREE.Vector3(), nm = new THREE.Matrix3();
+  for (const [g0, m] of parts) {
+    const g = g0.index ? g0.toNonIndexed() : g0;
+    nm.getNormalMatrix(m);
+    const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+    for (let i = 0; i < P.count; i++) {
+      v.fromBufferAttribute(P, i).applyMatrix4(m); pos.push(v.x, v.y, v.z);
+      n.fromBufferAttribute(N, i).applyMatrix3(nm).normalize(); nor.push(n.x, n.y, n.z);
+      if (U) uv.push(U.getX(i), U.getY(i)); else uv.push(0, 0);
+    }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  out.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  return out;
+}
+const M = (x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, ry = 0) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(sx, sy, sz));
+
+// ------------------------------------------------------------------ materials
+const stoneTex = ctex(512, 512, (g, w, h) => {
+  g.fillStyle = "#dcc6a0"; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 2600; i++) { g.fillStyle = rng() > .5 ? "rgba(120,90,55,.08)" : "rgba(255,245,225,.10)"; g.fillRect(rng() * w, rng() * h, 2 + rng() * 5, 2 + rng() * 4); }
+  for (let y = 0; y < h; y += 32) { g.fillStyle = "rgba(90,65,40,.28)"; g.fillRect(0, y, w, 3); g.fillStyle = "rgba(255,240,210,.25)"; g.fillRect(0, y + 3, w, 2); }
+  for (let y = 0; y < h; y += 64) for (let x = (y / 64) % 2 ? 0 : 32; x < w; x += 64) { g.fillStyle = "rgba(90,65,40,.22)"; g.fillRect(x, y + 8, 3, 22); }
+}, [2, 2]);
+const STONE = std(0xffffff, { map: stoneTex, roughness: 0.92 });
+const STONE_D = std(0xc9a97c, { map: stoneTex, roughness: 0.95 });
+const GOLD = std(0xe2b44a, { metalness: 0.75, roughness: 0.32 });
+const WHITE = std(0xf1ebe0);
+
+// ------------------------------------------------------------------ sky
+const sky = new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { top: { value: new THREE.Color() }, hor: { value: new THREE.Color() }, sun: { value: new THREE.Vector3() }, sunC: { value: new THREE.Color() }, stars: { value: 0 } },
+  vertexShader: "varying vec3 d; void main(){ d = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); gl_Position.z = gl_Position.w; }",
+  fragmentShader: `uniform vec3 top, hor, sun, sunC; uniform float stars; varying vec3 d;
+    float h(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,45.164))) * 43758.5453); }
+    void main(){ float y = clamp(d.y, 0., 1.); vec3 c = mix(hor, top, pow(smoothstep(0., .55, y), .7));
+      float s = max(dot(d, normalize(sun)), 0.); c += sunC * (pow(s, 900.) * 4. + pow(s, 12.) * .35);
+      vec3 q = floor(d * 380.); float st = step(.9985, h(q)) * stars * smoothstep(.05, .3, d.y); c += vec3(st);
+      gl_FragColor = vec4(c, 1.); }`,
+}));
+sky.renderOrder = -1; scene.add(sky);
+
+// ------------------------------------------------------------------ lights
+const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x8a7452, 0.9); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 2.6); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.06;
+Object.assign(sun.shadow.camera, { left: -120, right: 120, top: 120, bottom: -120, near: 10, far: 700 });
+scene.add(sun, sun.target);
+
+// ------------------------------------------------------------------ land: plateau with the town, beach, sea, Gomti
+const LAND_Y = 10;
+const landH = (x, z) => {
+  // plateau (town) inland; falls to the beach toward the sea (x < -95) and to the Gomti (z > 34)
+  const toSea = smooth((x + 150) / 55), toRiver = 1 - smooth((z - 30) / 16);
+  let h = LAND_Y * Math.min(toSea, toRiver) - 1.2;
+  h += 0.6 * Math.sin(x * 0.05) * Math.sin(z * 0.07) * Math.min(toSea, toRiver);
+  if (z > 60) h = -1.2 + 6 * smooth((z - 78) / 30) * toSea; // the far bank of the Gomti
+  return h;
+};
+{
+  const g = new THREE.PlaneGeometry(900, 700, 220, 170); g.rotateX(-Math.PI / 2); g.translate(80, 0, 40);
+  const p = g.attributes.position, col = [];
+  const sand = new THREE.Color(0xe3cf9e), soil = new THREE.Color(0xb7a06d), grass = new THREE.Color(0x8c9a5a), c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i), y = landH(x, z); p.setY(i, y);
+    c.copy(y < 1.5 ? sand : soil).lerp(grass, smooth((y - 6) / 4) * 0.35 * (0.6 + 0.4 * Math.sin(x * .03 + z * .02))); col.push(c.r, c.g, c.b);
+  }
+  g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
+  const land = new THREE.Mesh(g, std(0xffffff, { vertexColors: true, roughness: 1 })); land.receiveShadow = true; scene.add(land);
+}
+// sea + river: animated water
+const water = (() => {
+  const g = new THREE.PlaneGeometry(2600, 2600, 120, 120); g.rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(g, std(0x2c6f86, { roughness: 0.18, metalness: 0.15 }));
+  m.position.y = 0; m.receiveShadow = true; scene.add(m);
+  const base = g.attributes.position.array.slice();
+  return { m, g, base };
+})();
+function animateWater(t) {
+  const a = water.g.attributes.position, b = water.base;
+  for (let i = 0; i < a.count; i++) {
+    const x = b[i * 3], z = b[i * 3 + 2];
+    a.array[i * 3 + 1] = 0.45 * Math.sin(x * 0.045 + t * 1.1) + 0.3 * Math.sin(z * 0.06 - t * 0.9) + 0.15 * Math.sin((x + z) * 0.11 + t * 1.7);
+  }
+  a.needsUpdate = true; water.g.computeVertexNormals();
+}
+
+// ------------------------------------------------------------------ the temple
+const temple = new THREE.Group(); temple.position.y = LAND_Y; scene.add(temple);
+
+// jagati: stepped platform
+[[78, 3.2, 70], [70, 2.2, 62], [64, 1.4, 56]].reduce((y, [w, h, d]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), STONE_D); b.position.set(0, y + h / 2, -6); b.castShadow = b.receiveShadow = true; temple.add(b); return y + h; }, 0);
+const BASE = 6.8;
+
+// nagara shikhara as one merged geometry: tiers that curve in, with ratha projections on every face
+function shikharaGeo(W, H) {
+  const parts = [], n = 18, box = new THREE.BoxGeometry(1, 1, 1);
+  for (let i = 0; i < n; i++) {
+    const t = i / n, w = W * Math.pow(Math.cos(t * Math.PI / 2 * 0.92), 0.62), lh = H / n, y = t * H;
+    parts.push([box, M(0, y + lh * 0.45, 0, w, lh * 0.9, w)]);
+    parts.push([box, M(0, y + lh * 0.95, 0, w * 1.04, lh * 0.12, w * 1.04)]); // moulding band
+    for (const r of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+      parts.push([box, new THREE.Matrix4().makeRotationY(r).multiply(M(0, y + lh * 0.45, w * 0.5, w * 0.36, lh * 0.9, w * 0.14))]);
+      parts.push([box, new THREE.Matrix4().makeRotationY(r).multiply(M(0, y + lh * 0.45, w * 0.56, w * 0.14, lh * 0.9, w * 0.12))]);
+    }
+  }
+  // neck, amalaka (ribbed disc) and the kalash
+  const top = W * Math.pow(Math.cos(Math.PI / 2 * 0.92), 0.62);
+  parts.push([new THREE.CylinderGeometry(top * 0.42, top * 0.5, H * 0.03, 16), M(0, H + H * 0.015, 0)]);
+  const am = new THREE.TorusGeometry(top * 0.6, top * 0.22, 10, 32); am.rotateX(Math.PI / 2);
+  parts.push([am, M(0, H + H * 0.05, 0, 1, 1.25, 1)]);
+  parts.push([new THREE.CylinderGeometry(top * 0.35, top * 0.6, H * 0.02, 16), M(0, H + H * 0.078, 0)]);
+  return merge(parts);
+}
+const SH_H = 52, SH_W = 17;
+const mainGeo = shikharaGeo(SH_W, SH_H), smallGeo = shikharaGeo(SH_W, SH_H);
+const shrine = new THREE.Group(); shrine.position.set(0, BASE, -16); temple.add(shrine);
+// garbhagriha walls under the spire, with pillared niches
+{
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(22, 12, 22), STONE); wall.position.y = 6; wall.castShadow = wall.receiveShadow = true; shrine.add(wall);
+  for (const r of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) for (const k of [-1, 0, 1]) {
+    const nb = new THREE.Mesh(new THREE.BoxGeometry(4.2, 7, 1.2), STONE_D); nb.position.set(Math.sin(r) * 11.3 + Math.cos(r) * k * 6.5, 6, Math.cos(r) * 11.3 - Math.sin(r) * k * 6.5); nb.rotation.y = r; nb.castShadow = true; shrine.add(nb);
+  }
+}
+const spire = new THREE.Mesh(mainGeo, STONE); spire.position.y = 12; spire.castShadow = spire.receiveShadow = true; shrine.add(spire);
+// urushringas: smaller spires clustered up the main one
+const uru = [];
+for (const r of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+  [[0.0, 0.42, 9.4], [0.17, 0.32, 8.0], [0.33, 0.22, 6.3]].forEach(([ty, s, off]) => {
+    const m = new THREE.Mesh(smallGeo, STONE); m.scale.setScalar(s);
+    m.position.set(Math.sin(r) * off, 12 + ty * SH_H, Math.cos(r) * off); m.castShadow = true; shrine.add(m); uru.push(m);
+  });
+  for (const side of [-1, 1]) {
+    const m = new THREE.Mesh(smallGeo, STONE); m.scale.setScalar(0.24);
+    const a = r + side * Math.PI / 4; m.position.set(Math.sin(a) * 12.5, 12, Math.cos(a) * 12.5); m.castShadow = true; shrine.add(m);
+  }
+}
+// kalash + flag pole + the 52-gaj dhwaja
+const kal = new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [1.1, .2], [1.5, 1.2], [1.0, 2.2], [.5, 2.6], [.7, 3.0], [.15, 3.8], [0, 4.2]].map(([r, y]) => new THREE.Vector2(r, y)), 24), GOLD);
+const SH_TOP = 12 + SH_H * 1.09; kal.position.y = SH_TOP; shrine.add(kal);
+const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 16, 8), std(0x7a5a3a)); pole.position.y = SH_TOP + 10; shrine.add(pole);
+const flagTex = ctex(512, 256, (g, w, h) => {
+  const cols = ["#f29a2e", "#d8322b", "#f4d24a", "#2f8a4a", "#f29a2e", "#d8322b"];
+  cols.forEach((c, i) => { g.fillStyle = c; g.fillRect(0, i * h / cols.length, w, h / cols.length + 1); });
+  g.fillStyle = "#fff6d8"; g.beginPath(); g.arc(150, 128, 34, 0, Math.PI * 2); g.fill(); // sun
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; g.fillRect(150 + Math.cos(a) * 40 - 3, 128 + Math.sin(a) * 40 - 3, 6, 6); }
+  g.beginPath(); g.arc(330, 128, 30, 0, Math.PI * 2); g.fill(); g.fillStyle = "#d8322b"; g.beginPath(); g.arc(342, 120, 26, 0, Math.PI * 2); g.fill(); // moon
+});
+const flagGeo = new THREE.PlaneGeometry(14, 5.5, 40, 10); flagGeo.translate(7, 0, 0);
+const flag = new THREE.Mesh(flagGeo, std(0xffffff, { map: flagTex, side: THREE.DoubleSide, roughness: 0.9 }));
+flag.position.set(0.2, SH_TOP + 15, 0); flag.castShadow = true; shrine.add(flag);
+const flagBase = flagGeo.attributes.position.array.slice();
+function animateFlag(t) {
+  const a = flagGeo.attributes.position;
+  for (let i = 0; i < a.count; i++) {
+    const x = flagBase[i * 3], y = flagBase[i * 3 + 1], k = x / 14;
+    a.array[i * 3 + 2] = Math.sin(x * 0.55 - t * 5.2) * 1.2 * k + Math.sin(x * 0.9 - t * 7 + y) * 0.35 * k;
+    a.array[i * 3 + 1] = y - k * k * 1.6 + Math.sin(x * 0.4 - t * 4) * 0.25 * k;
+  }
+  a.needsUpdate = true; flagGeo.computeVertexNormals();
+}
+
+// mandapa: five storeys of pillared halls, balconies, and a stepped pyramid roof
+const mand = new THREE.Group(); mand.position.set(0, BASE, 10); temple.add(mand);
+const pillarGeo = merge([
+  [new THREE.BoxGeometry(1.1, .5, 1.1), M(0, .25, 0)],
+  [new THREE.CylinderGeometry(.34, .4, 3.4, 8), M(0, 2.2, 0)],
+  [new THREE.CylinderGeometry(.55, .36, .5, 8), M(0, 4.0, 0)],
+  [new THREE.BoxGeometry(1.2, .35, 1.2), M(0, 4.4, 0)],
+]);
+const FLOORS = 5, FH = 4.8, MW = 30, MD = 24;
+const pillarMats = [];
+for (let f = 0; f < FLOORS; f++) {
+  const shrink = 1 - f * 0.11, w = MW * shrink, d = MD * shrink;
+  for (let i = 0; i <= 6; i++) for (let j = 0; j <= 5; j++) {
+    if (i > 0 && i < 6 && j > 0 && j < 5 && (i + j) % 2) continue;
+    pillarMats.push(M(-w / 2 + i * w / 6, f * FH + 0.6, -d / 2 + j * d / 5));
+  }
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 3, .7, d + 3), STONE_D); slab.position.y = f * FH + FH + .25; slab.castShadow = slab.receiveShadow = true; mand.add(slab);
+  const chh = new THREE.Mesh(new THREE.BoxGeometry(w + 3.6, .35, d + 3.6), STONE); chh.position.y = f * FH + FH + .75; mand.add(chh);
+  // balcony parapets on the long sides (jharokhas)
+  for (const s of [-1, 1]) {
+    const par = new THREE.Mesh(new THREE.BoxGeometry(w + 2.6, 1.0, .35), STONE); par.position.set(0, f * FH + FH + 1.4, s * (d / 2 + 1.3)); par.castShadow = true; mand.add(par);
+    const par2 = new THREE.Mesh(new THREE.BoxGeometry(.35, 1.0, d + 2.6), STONE); par2.position.set(s * (w / 2 + 1.3), f * FH + FH + 1.4, 0); par2.castShadow = true; mand.add(par2);
+  }
+}
+const floor0 = new THREE.Mesh(new THREE.BoxGeometry(MW + 3, .6, MD + 3), STONE_D); floor0.position.y = .3; floor0.receiveShadow = true; mand.add(floor0);
+const pillars = new THREE.InstancedMesh(pillarGeo, STONE, pillarMats.length);
+pillarMats.forEach((m, i) => pillars.setMatrixAt(i, m)); pillars.castShadow = pillars.receiveShadow = true; mand.add(pillars);
+// samvarana roof: stepped bell-like tiers + bell + kalash
+{
+  const y0 = FLOORS * FH + 1.0, w0 = MW * (1 - 4 * 0.11);
+  for (let k = 0; k < 9; k++) { const w = w0 * (1 - k * 0.1); const t = new THREE.Mesh(new THREE.BoxGeometry(w, 1.0, w * MD / MW), k % 2 ? STONE : STONE_D); t.position.y = y0 + k * 1.05; t.castShadow = true; mand.add(t); }
+  const bell = new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [3.2, 0], [3.0, 1.2], [2.0, 2.4], [.9, 3.0], [0, 3.2]].map(([r, y]) => new THREE.Vector2(r, y)), 24), STONE); bell.position.y = y0 + 9.4; bell.castShadow = true; mand.add(bell);
+  const k2 = kal.clone(); k2.scale.setScalar(.55); k2.position.y = y0 + 12.5; mand.add(k2);
+}
+// front porch steps toward the town (the temple faces +z here)
+for (let i = 0; i < 8; i++) { const s = new THREE.Mesh(new THREE.BoxGeometry(14, .45, 1.2), STONE_D); s.position.set(0, BASE - .25 - i * .45 + .45, 23.5 + i * 1.2); s.receiveShadow = true; temple.add(s); }
+
+// Swarga Dwar side: 56 steps down to the Gomti ghat
+const ghat = new THREE.Group(); scene.add(ghat);
+{
+  const steps = 56, z0 = 32, z1 = 62, y0 = LAND_Y, y1 = 0.2;
+  const g = new THREE.BoxGeometry(46, 1, 1); const inst = new THREE.InstancedMesh(g, STONE_D, steps);
+  for (let i = 0; i < steps; i++) { const t = i / (steps - 1); const y = lerp(y0, y1, t), z = lerp(z0, z1, t); inst.setMatrixAt(i, M(-6, y - .5, z, 1, (y0 - y1) / steps + .9, (z1 - z0) / steps + .05)); }
+  inst.receiveShadow = true; inst.castShadow = true; ghat.add(inst);
+  // the gate at the top of the steps
+  const gate = new THREE.Group(); gate.position.set(-6, LAND_Y, 30);
+  for (const s of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(3, 11, 3), STONE); p.position.set(s * 5, 5.5, 0); p.castShadow = true; gate.add(p); }
+  const lin = new THREE.Mesh(new THREE.BoxGeometry(14, 2.4, 3.4), STONE_D); lin.position.y = 12.2; lin.castShadow = true; gate.add(lin);
+  const gs = new THREE.Mesh(smallGeo, STONE); gs.scale.setScalar(.22); gs.position.y = 13.4; gate.add(gs);
+  ghat.add(gate);
+  // small shrines along the ghat
+  for (const [x, z] of [[-34, 58], [22, 56], [-48, 64], [36, 62]]) {
+    const s = new THREE.Group(); s.position.set(x, landH(x, z) < .5 ? 0.4 : landH(x, z), z);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 4), STONE); b.position.y = 2; b.castShadow = true; s.add(b);
+    const sp = new THREE.Mesh(smallGeo, STONE); sp.scale.setScalar(.13); sp.position.y = 4; s.add(sp); ghat.add(s);
+  }
+}
+
+// the town: whitewashed and ochre houses with flat roofs
+{
+  const houses = [], cols = [0xf1e9d8, 0xe9c88f, 0xd9a86a, 0xf4f0e8, 0xc9d3dc, 0xe7b9a0];
+  const geo = new THREE.BoxGeometry(1, 1, 1);
+  for (let i = 0; i < 520; i++) {
+    const x = -140 + rng() * 360, z = -210 + rng() * 235;
+    if (Math.abs(x) < 50 && z > -60) continue;
+    if (landH(x, z) < 7) continue;
+    houses.push([x, z, 5 + rng() * 6, 5 + rng() * 7, 4 + rng() * 9, cols[Math.floor(rng() * cols.length)]]);
+  }
+  const inst = new THREE.InstancedMesh(geo, std(0xffffff, { roughness: 0.95 }), houses.length);
+  const c = new THREE.Color();
+  houses.forEach(([x, z, w, d, h, col], i) => { inst.setMatrixAt(i, M(x, landH(x, z) + h / 2, z, w, h, d, rng() * .3)); inst.setColorAt(i, c.set(col)); });
+  inst.castShadow = inst.receiveShadow = true; scene.add(inst);
+  // lit windows for the night
+  const win = new THREE.InstancedMesh(new THREE.PlaneGeometry(.9, 1.1), new THREE.MeshBasicMaterial({ color: 0xffc46a, toneMapped: false, transparent: true, opacity: 0 }), houses.length * 2);
+  houses.forEach(([x, z, w, d, h], i) => { for (let k = 0; k < 2; k++) win.setMatrixAt(i * 2 + k, M(x + (k - .5) * w * .4, landH(x, z) + h * .55, z + d / 2 + .05)); });
+  scene.add(win); window.__win = win;
+}
+
+// boats on the Gomti and the sea
+const boats = [];
+for (let i = 0; i < 9; i++) {
+  const b = new THREE.Group();
+  const hull = new THREE.Mesh(new THREE.CylinderGeometry(1.6, .9, 7, 8, 1, false, 0, Math.PI), std([0x8a5a34, 0x2f6fb5, 0xc23b2e][i % 3]));
+  hull.rotation.z = Math.PI / 2; hull.rotation.y = Math.PI / 2; hull.scale.set(1, 1, .7); b.add(hull);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(.08, .1, 7, 6), std(0x6a4a2a)); mast.position.y = 3.4; b.add(mast);
+  const sail = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 6.8, 0), new THREE.Vector3(0, 1, 3.6)]), std(0xf4ead6, { side: THREE.DoubleSide }));
+  sail.geometry.computeVertexNormals(); b.add(sail);
+  b.traverse(o => { o.castShadow = true; });
+  const home = i < 4 ? [-30 + i * 22, 70 + (i % 2) * 6] : [-180 - (i - 4) * 28, 10 + (i % 3) * 30];
+  b.userData = { home, ph: rng() * 6 }; scene.add(b); boats.push(b);
+}
+
+// pilgrims: low-poly people on the steps, porch and ghat
+const people = (() => {
+  const spots = [];
+  for (let i = 0; i < 70; i++) { const t = rng(); spots.push([-6 + (rng() - .5) * 40, 0, lerp(33, 61, t), lerp(LAND_Y, .2, t)]); }
+  for (let i = 0; i < 40; i++) spots.push([(rng() - .5) * 50, 0, 26 + rng() * 6, LAND_Y]);
+  for (let i = 0; i < 30; i++) spots.push([-40 + rng() * 80, 0, 62 + rng() * 6, .3]);
+  const body = new THREE.InstancedMesh(new THREE.CylinderGeometry(.28, .42, 1.3, 8), std(0xffffff), spots.length);
+  const head = new THREE.InstancedMesh(new THREE.SphereGeometry(.22, 10, 8), std(0xc98a5e), spots.length);
+  const cl = [0xf29a2e, 0xd8322b, 0xf4f0e8, 0x2f6fb5, 0xc2385a, 0xf4d24a, 0x6a8f3a], c = new THREE.Color();
+  spots.forEach((s, i) => body.setColorAt(i, c.set(cl[i % cl.length])));
+  body.castShadow = head.castShadow = true; scene.add(body, head);
+  return { spots, body, head };
+})();
+function animatePeople(t) {
+  const m = new THREE.Matrix4();
+  people.spots.forEach(([x, , z, y], i) => {
+    const sway = Math.sin(t * 1.5 + i) * .03, dx = Math.sin(t * .2 + i) * .6;
+    people.body.setMatrixAt(i, M(x + dx, y + .65 + Math.abs(Math.sin(t * 3 + i)) * .03, z, 1, 1, 1, sway));
+    people.head.setMatrixAt(i, m.makeTranslation(x + dx, y + 1.5, z));
+  });
+  people.body.instanceMatrix.needsUpdate = people.head.instanceMatrix.needsUpdate = true;
+}
+
+// pigeons circling the spire
+const birds = (() => {
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute([0, 0, .4, -1, .25, -.1, 0, 0, -.2, 0, 0, .4, 1, .25, -.1, 0, 0, -.2], 3)); g.computeVertexNormals();
+  const inst = new THREE.InstancedMesh(g, std(0x6f6a78, { side: THREE.DoubleSide }), 46); scene.add(inst); return inst;
+})();
+function animateBirds(t) {
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  for (let i = 0; i < 46; i++) {
+    const r = 30 + (i % 7) * 4, sp = .25 + (i % 5) * .03, a = t * sp + i * .7, y = LAND_Y + 40 + (i % 9) * 3 + Math.sin(t + i) * 2;
+    e.set(Math.sin(t * 9 + i) * .5, -a, 0); q.setFromEuler(e);
+    m.compose(new THREE.Vector3(Math.cos(a) * r, y, -6 + Math.sin(a) * r), q, new THREE.Vector3(1, 1, 1)); birds.setMatrixAt(i, m);
+  }
+  birds.instanceMatrix.needsUpdate = true;
+}
+
+// evening lamps: diyas along the mandapa floors, the ghat, and floating on the river
+const lamps = (() => {
+  const pts = [];
+  for (let f = 0; f < FLOORS; f++) { const w = MW * (1 - f * .11) + 2.6, d = MD * (1 - f * .11) + 2.6; for (let k = 0; k < 24; k++) { const u = k / 24; pts.push(new THREE.Vector3(lerp(-w / 2, w / 2, u), BASE + LAND_Y + f * FH + FH + 2.1, 10 + d / 2)); } }
+  for (let k = 0; k < 56; k += 2) { const t = k / 55; for (const x of [-28, 16]) pts.push(new THREE.Vector3(x, lerp(LAND_Y, .2, t) + .4, lerp(32, 62, t))); }
+  for (let k = 0; k < 60; k++) pts.push(new THREE.Vector3(-60 + rng() * 120, .35, 66 + rng() * 22));
+  const inst = new THREE.InstancedMesh(new THREE.SphereGeometry(.22, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffb347, toneMapped: false }), pts.length);
+  pts.forEach((p, i) => inst.setMatrixAt(i, new THREE.Matrix4().makeTranslation(p.x, p.y, p.z)));
+  scene.add(inst);
+  const L = [new THREE.PointLight(0xffa040, 0, 80, 1.6), new THREE.PointLight(0xffa040, 0, 90, 1.6), new THREE.PointLight(0xffb060, 0, 120, 1.4)];
+  L[0].position.set(0, LAND_Y + 14, 26); L[1].position.set(-6, 4, 56); L[2].position.set(0, LAND_Y + 30, -10); L.forEach(l => scene.add(l));
+  return { inst, pts, L };
+})();
+
+// ------------------------------------------------------------------ time of day
+const SKY = {
+  dawn: { top: 0x46508f, hor: 0xffb98a, sun: 0xffb27a, si: 1.6, hi: .55, el: 6, az: 200, fog: 0xe7b9a3, exp: 1.0, stars: .2 },
+  day: { top: 0x3c7fd0, hor: 0xbfd6ee, sun: 0xfff1dc, si: 2.8, hi: .9, el: 42, az: 150, fog: 0xc9d9ea, exp: 1.0, stars: 0 },
+  golden: { top: 0x5b6aa8, hor: 0xffc27a, sun: 0xffa54d, si: 2.6, hi: .6, el: 10, az: 75, fog: 0xf0bf8c, exp: 1.02, stars: 0 },
+  dusk: { top: 0x252a5a, hor: 0xe57f5a, sun: 0xff7a3a, si: 1.1, hi: .35, el: 2, az: 70, fog: 0x8a6070, exp: 1.08, stars: .35 },
+  night: { top: 0x070b1e, hor: 0x1d2650, sun: 0x9fb4ff, si: .35, hi: .22, el: 40, az: 250, fog: 0x141a33, exp: 1.25, stars: 1 },
+};
+const mixSky = (a, b, k) => { const o = {}; for (const key in a) o[key] = typeof a[key] === "number" && key.length > 3 || ["si", "hi", "el", "az", "exp", "stars"].includes(key) ? lerp(a[key], b[key], k) : a[key]; return o; };
+const TOD = [[0, "dawn"], [12, "day"], [40, "day"], [50, "golden"], [58, "dusk"], [64, "night"], [80, "night"]];
+const ca = new THREE.Color(), cb = new THREE.Color();
+function applyTOD(t) {
+  let i = 0; while (i < TOD.length - 2 && t > TOD[i + 1][0]) i++;
+  const [t0, n0] = TOD[i], [t1, n1] = TOD[i + 1], k = smooth((t - t0) / Math.max(.001, t1 - t0)), A = SKY[n0], B = SKY[n1];
+  const C = (p) => ca.set(A[p]).lerp(cb.set(B[p]), k).clone();
+  const el = lerp(A.el, B.el, k) * Math.PI / 180, az = lerp(A.az, B.az, k) * Math.PI / 180;
+  const dir = new THREE.Vector3(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az));
+  sky.material.uniforms.top.value.copy(C("top")); sky.material.uniforms.hor.value.copy(C("hor"));
+  sky.material.uniforms.sun.value.copy(dir); sky.material.uniforms.sunC.value.copy(C("sun")); sky.material.uniforms.stars.value = lerp(A.stars, B.stars, k);
+  sun.color.copy(C("sun")); sun.intensity = lerp(A.si, B.si, k);
+  sun.position.copy(dir).multiplyScalar(400).add(new THREE.Vector3(0, LAND_Y, 0)); sun.target.position.set(0, LAND_Y, 0);
+  hemi.intensity = lerp(A.hi, B.hi, k); hemi.color.copy(C("hor")).lerp(new THREE.Color(0xffffff), .4);
+  fog.color.copy(C("fog")); renderer.toneMappingExposure = lerp(A.exp, B.exp, k);
+  const night = smooth((t - 56) / 8);
+  lamps.L.forEach((l, j) => l.intensity = night * [900, 700, 1400][j] * (0.92 + 0.08 * Math.sin(t * 13 + j)));
+  lamps.inst.visible = night > .02;
+  window.__win.material.opacity = night;
+  water.m.material.color.set(0x2c6f86).lerp(new THREE.Color(0x0e1a33), night * .8);
+}
+
+// ------------------------------------------------------------------ the camera tour (seconds)
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const KEYS = [
+  // t, camera position, look-at, fov
+  [0, V(-330, 14, 150), V(-20, 40, 0), 42],
+  [6, V(-230, 9, 110), V(-10, 38, -6), 40],
+  [11, V(-120, 7, 92), V(-6, 26, 30), 44],
+  [16, V(-40, 5, 88), V(-6, 12, 46), 50],
+  [20, V(-10, 9, 70), V(-4, 24, 24), 52],
+  [25, V(30, 22, 52), V(0, 40, -10), 46],
+  [30, V(46, 42, -4), V(0, 52, -16), 46],
+  [34, V(18, 62, -46), V(0, 68, -16), 48],
+  [38, V(-20, 80, -6), V(2, 84, -16), 46],
+  [42, V(-14, 86, 12), V(4, 86, -16), 44],
+  [46, V(0, 26, 46), V(0, 26, 20), 54],
+  [50, V(12, 22, 30), V(-8, 24, 18), 58],
+  [54, V(60, 30, 84), V(0, 34, 0), 44],
+  [59, V(120, 40, 150), V(-10, 34, 0), 40],
+  [64, V(10, 16, 96), V(-6, 18, 40), 46],
+  [69, V(-40, 26, 88), V(0, 40, -6), 44],
+  [74, V(-140, 90, 220), V(0, 40, -10), 40],
+];
+const DUR = 74;
+const CAPS = [
+  [0.6, 8.5, "अरब सागर के किनारे", "द्वारका, गुजरात · गोमती नदी यहीं समुद्र से मिलती है"],
+  [12, 19.5, "स्वर्ग द्वार से गोमती घाट", "मंदिर से नदी तक 56 सीढ़ियाँ उतरती हैं"],
+  [21, 29.5, "जगत मंदिर", "द्वारकाधीश यानी भगवान कृष्ण का मंदिर, चार धामों में से एक"],
+  [30.5, 37.5, "आसमान छूता शिखर", "नागर शैली का शिखर, चारों ओर छोटे-छोटे शिखरों की लड़ी"],
+  [38, 45.5, "52 गज़ का ध्वज", "शिखर पर लहराता ध्वज दिन में कई बार बदला जाता है"],
+  [46, 53.5, "पाँच मंज़िला मंडप", "मंदिर 72 खंभों पर खड़ा है"],
+  [54.5, 63, "सांझ की बेला", "नावें लौटती हैं, घाट पर रौनक बढ़ती है"],
+  [64, 73, "संध्या आरती", "दीपों से जगमगाता मंदिर और गोमती का किनारा"],
+];
+function camAt(t) {
+  let i = 0; while (i < KEYS.length - 2 && t > KEYS[i + 1][0]) i++;
+  const k0 = KEYS[Math.max(0, i - 1)], k1 = KEYS[i], k2 = KEYS[i + 1], k3 = KEYS[Math.min(KEYS.length - 1, i + 2)];
+  const u = clamp01((t - k1[0]) / (k2[0] - k1[0]));
+  const cr = (a, b, c, d) => { const u2 = u * u, u3 = u2 * u; return new THREE.Vector3().addScaledVector(a, -.5 * u3 + u2 - .5 * u).addScaledVector(b, 1.5 * u3 - 2.5 * u2 + 1).addScaledVector(c, -1.5 * u3 + 2 * u2 + .5 * u).addScaledVector(d, .5 * u3 - .5 * u2); };
+  const pos = cr(k0[1], k1[1], k2[1], k3[1]), look = cr(k0[2], k1[2], k2[2], k3[2]);
+  return { pos, look, fov: lerp(k1[3], k2[3], smooth(u)) };
+}
+
+// ------------------------------------------------------------------ sound (synthesized, starts on tap)
+let audio = null;
+function startSound() {
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  const out = ac.createGain(); out.gain.value = .55; out.connect(ac.destination);
+  // sea: filtered noise with a slow swell
+  const len = ac.sampleRate * 4, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const n = ac.createBufferSource(); n.buffer = buf; n.loop = true;
+  const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 600;
+  const sg = ac.createGain(); sg.gain.value = .12; const lfo = ac.createOscillator(); lfo.frequency.value = .11; const lg = ac.createGain(); lg.gain.value = .08;
+  lfo.connect(lg).connect(sg.gain); n.connect(lp).connect(sg).connect(out); n.start(); lfo.start();
+  // tanpura-like drone on D
+  const dr = ac.createGain(); dr.gain.value = .05; dr.connect(out);
+  [73.4, 110, 146.8, 220].forEach((f, i) => { const o = ac.createOscillator(); o.type = i % 2 ? "triangle" : "sawtooth"; o.frequency.value = f; const g = ac.createGain(); g.gain.value = [.5, .35, .3, .15][i]; const bp = ac.createBiquadFilter(); bp.type = "lowpass"; bp.frequency.value = 900; o.connect(bp).connect(g).connect(dr); o.start(); });
+  audio = { ac, out, lastBell: -1 };
+}
+function bell(when = 0, pitch = 1, vol = .5) {
+  if (!audio) return; const { ac, out } = audio, t0 = ac.currentTime + when;
+  [[520, 1], [1312, .5], [1980, .3], [2760, .18]].forEach(([f, a]) => {
+    const o = ac.createOscillator(); o.frequency.value = f * pitch; const g = ac.createGain();
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol * a, t0 + .005); g.gain.exponentialRampToValueAtTime(.0001, t0 + 3.2);
+    o.connect(g).connect(out); o.start(t0); o.stop(t0 + 3.3);
+  });
+}
+function soundTick(t) {
+  if (!audio) return;
+  const marks = CAPS.map(c => c[0]);
+  for (const m of marks) if (audio.lastT !== undefined && audio.lastT < m && t >= m) bell(0, 1, .35);
+  if (t > 64 && Math.floor(t * 1.6) !== Math.floor((audio.lastT ?? 0) * 1.6)) bell(0, 1.5 + (Math.floor(t * 1.6) % 2) * .12, .16);
+  audio.lastT = t;
+}
+
+// ------------------------------------------------------------------ UI + loop
+const capEl = document.getElementById("cap"), capT = capEl.querySelector(".t"), capS = capEl.querySelector(".s");
+const titleEl = document.getElementById("title"), barI = document.querySelector("#bar i");
+let showText = true, playing = true, T = 0, last = performance.now();
+const btn = id => document.getElementById(id);
+btn("play").onclick = () => { playing = !playing; btn("play").textContent = playing ? "⏸ रोकें" : "▶ चलाएँ"; };
+btn("again").onclick = () => { T = 0; if (audio) audio.lastT = 0; playing = true; btn("play").textContent = "⏸ रोकें"; };
+btn("txt").onclick = () => { showText = !showText; btn("txt").setAttribute("aria-pressed", showText); };
+btn("snd").onclick = () => { if (!audio) { startSound(); bell(0, 1, .4); } else if (audio.ac.state === "running") audio.ac.suspend(); else audio.ac.resume(); btn("snd").setAttribute("aria-pressed", !!audio && audio.ac.state !== "suspended" ? "true" : "false"); setTimeout(() => btn("snd").setAttribute("aria-pressed", audio && audio.ac.state === "running" ? "true" : "false"), 120); };
+btn("fmt").onclick = () => { const on = document.body.classList.toggle("portrait"); btn("fmt").setAttribute("aria-pressed", on); resize(); };
+btn("rec").onclick = (e) => { e.stopPropagation(); document.body.classList.add("rec"); T = 0; if (audio) audio.lastT = 0; playing = true; btn("play").textContent = "⏸ रोकें"; };
+document.getElementById("stage").addEventListener("click", () => document.body.classList.remove("rec"));
+document.getElementById("bar").onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); T = clamp01((e.clientX - r.left) / r.width) * DUR; };
+document.body.classList.add("portrait");
+setTimeout(() => document.getElementById("hint").style.opacity = 0, 6000);
+
+function resize() {
+  const f = document.getElementById("frame"), w = f.clientWidth, h = f.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize); resize();
+
+function frame(now) {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  if (playing) { T += dt; if (T > DUR + 2) { T = 0; if (audio) audio.lastT = 0; } }
+  const t = Math.min(T, DUR);
+  const c = camAt(t);
+  camera.position.copy(c.pos); camera.lookAt(c.look);
+  // vertical frames see less sideways: widen the lens a little on tall screens
+  camera.fov = c.fov * (camera.aspect < .8 ? 1.12 : 1); camera.updateProjectionMatrix();
+  applyTOD(t);
+  animateWater(T); animateFlag(T); animatePeople(T); animateBirds(T);
+  boats.forEach((b, i) => { const [x, z] = b.userData.home, ph = b.userData.ph; b.position.set(x + Math.sin(T * .08 + ph) * 8, .3 + Math.sin(T * 1.3 + ph) * .25, z + Math.cos(T * .06 + ph) * 3); b.rotation.set(Math.sin(T * 1.1 + ph) * .05, ph + T * .02, Math.sin(T * .9 + ph) * .06); });
+  sky.position.copy(camera.position);
+  // captions
+  const cap = CAPS.find(k => t >= k[0] && t <= k[1]);
+  if (cap && showText) { capT.textContent = cap[2]; capS.textContent = cap[3]; capEl.style.opacity = Math.min(smooth((t - cap[0]) / .6), smooth((cap[1] - t) / .6)); }
+  else capEl.style.opacity = 0;
+  titleEl.style.opacity = showText ? Math.min(smooth((t - .3) / 1), smooth((6.5 - t) / 1)) : 0;
+  barI.style.width = (t / DUR * 100).toFixed(2) + "%";
+  soundTick(t);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__setT = (x) => { T = x; playing = false; }; // for stills
+</script>

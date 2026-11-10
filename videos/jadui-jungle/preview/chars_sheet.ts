@@ -1,0 +1,18 @@
+import { Pen } from "../src/jungle/toon";
+import { drawChintu, drawSheru, drawTreeFace, drawBird, drawRabbit, drawSquirrel, drawButterfly, drawFlower } from "../src/jungle/chars";
+const cv = document.createElement("canvas"); cv.width = 2400; cv.height = 2200; document.body.appendChild(cv);
+const g = cv.getContext("2d")!; g.fillStyle = "#9fd27a"; g.fillRect(0, 0, 2400, 2200);
+const cell = (x: number, y: number, w: number, h: number, sc: number, fn: (p: Pen) => void) => { g.save(); g.translate(x, y); g.scale(sc, sc); const p = new Pen(g); fn(p); g.restore(); g.strokeStyle="#0003"; g.strokeRect(x,y,w*sc,h*sc); };
+const cp: any[] = [{expr:"smile"},{expr:"surprise",face:0.6},{expr:"talk",talk:1},{expr:"worried"},{expr:"determined",face:-0.5},{expr:"laugh",arms:"cheer"},{expr:"smile",walk:0.25,face:0.3},{expr:"smile",walk:0.25,run:true,face:0.9},{expr:"kind",kneel:1,arms:"reach",face:0.5},{expr:"smile",arms:"wave",wave:0.25}];
+cp.forEach((o,i)=>cell(10+(i%5)*240, 10+Math.floor(i/5)*400, 600,1000,0.38,p=>drawChintu(p,o)));
+const sp: any[] = [{expr:"grin",pose:"sit"},{expr:"silly",pose:"stand",wink:true},{expr:"worried",pose:"sit"},{expr:"wow",pose:"stand",face:0.5},{expr:"laugh",pose:"jump",face:0.3},{expr:"smile",pose:"run",phase:0.25,face:0.9},{expr:"talk",talk:1,pose:"sit"},{expr:"smile",pose:"dig",phase:0.2,face:0.7}];
+sp.forEach((o,i)=>cell(1220+(i%4)*290, 10+Math.floor(i/4)*300, 800,800,0.36,p=>drawSheru(p,o)));
+cell(1220, 640, 1000,700,0.5,p=>{p.g.fillStyle="#6b4128";p.g.fillRect(0,0,1000,700);drawTreeFace(p,{open:0,talk:0,smile:0.3,glow:0});});
+cell(1730, 640, 1000,700,0.5,p=>{p.g.fillStyle="#6b4128";p.g.fillRect(0,0,1000,700);drawTreeFace(p,{open:1,talk:0.8,smile:0.5,glow:1});});
+cell(10, 820, 300,300,0.8,p=>drawBird(p,{flap:0,hurt:true,expr:"sad"}));
+cell(260, 820, 300,300,0.8,p=>drawBird(p,{flap:1,hurt:false,expr:"happy"}));
+cell(510, 820, 400,400,0.6,p=>drawRabbit(p,{hop:0,expr:"happy"}));
+cell(760, 820, 400,400,0.6,p=>drawSquirrel(p,{hop:0}));
+for(let i=0;i<5;i++) cell(10+i*170, 1100, 200,160,0.8,p=>drawButterfly(p,i));
+for(let i=0;i<8;i++) cell(10+i*200, 1250, 256,256,0.7,p=>drawFlower(p,i));
+(window as any).done = true;
