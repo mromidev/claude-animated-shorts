@@ -1,4 +1,5 @@
-# Claude Animated Shorts
+# .claude/skills/cartoon-3d-short/SKILL.md
+Claude Animated Shorts
 
 The free Claude skill from the video **"How to Make Viral Animated Shorts Using Claude (Full Workflow)"**.
 
