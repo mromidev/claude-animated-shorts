@@ -63,13 +63,17 @@ const Inner: React.FC<{ id: number; kit: Kit }> = ({ id, kit }) => {
   useEffect(() => () => fx.ink.dispose(), [fx]);
   const post = useMemo(() => (
     <EffectComposer multisampling={4}>
-      {on.ink ? <primitive object={fx.ink} dispose={null} /> : null}
-      {on.lens && on.pre ? <primitive object={fx.lens.pre} dispose={null} /> : null}
-      {on.lens ? <primitive object={fx.lens.main} dispose={null} /> : null}
-      {on.bloom ? <primitive object={fx.bloom} dispose={null} /> : null}
-      <primitive object={fx.tone} dispose={null} />
-      {on.grade ? <primitive object={fx.grade} dispose={null} /> : null}
-      {on.grain ? <primitive object={fx.grain} dispose={null} /> : null}
+      {/* One fragment child: @react-three/postprocessing 3.0.4 (see README) types children as Element, not null.
+          A fragment creates no R3F instance, so the composer still collects the same passes in the same order. */}
+      <>
+        {on.ink ? <primitive object={fx.ink} dispose={null} /> : null}
+        {on.lens && on.pre ? <primitive object={fx.lens.pre} dispose={null} /> : null}
+        {on.lens ? <primitive object={fx.lens.main} dispose={null} /> : null}
+        {on.bloom ? <primitive object={fx.bloom} dispose={null} /> : null}
+        <primitive object={fx.tone} dispose={null} />
+        {on.grade ? <primitive object={fx.grade} dispose={null} /> : null}
+        {on.grain ? <primitive object={fx.grain} dispose={null} /> : null}
+      </>
     </EffectComposer>
   ), [fx, on]);
   const cam = camera as THREE.PerspectiveCamera;

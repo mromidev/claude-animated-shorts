@@ -3,7 +3,7 @@
 # missing or unchanged. Usage: python scripts/bridge_merge.py [cam,world,char,post]
 import os, shutil, sys, time, filecmp
 
-ROOT = os.path.expanduser("your Remotion project")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # project root: this file lives in <project>/scripts/
 MAIN = os.path.join(ROOT, "src/videos/bridge")
 OWN = {  # round 2 ownership (round 1: world also owned paint/build, post owned grade)
     "cam": ["story.ts"],
