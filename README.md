@@ -23,6 +23,23 @@ Proven on **The Bridge That Fell for a Song**, a 67 s short about the 1831 Broug
 2. You need [Remotion](https://www.remotion.dev/) with `@remotion/three`, plus Node, Python 3 and ffmpeg.
 3. In Claude Code, say: *"Use the cartoon short skill and make a short about …"*.
 
+### Remotion project setup (fresh install)
+The templates go into a Remotion project of your own (`src/videos/bridge/`, `scripts/`, `public/bridge/kenney/`). A set of versions that renders the bridge short correctly:
+
+```bash
+npm i remotion@4.0.541 @remotion/cli@4.0.541 @remotion/three@4.0.541 @remotion/bundler@4.0.541 @remotion/renderer@4.0.541 \
+  react@19.2.9 react-dom@19.2.9 three@0.187.0 @react-three/fiber@9.8.2 postprocessing@6.39.6 \
+  @react-three/postprocessing@3.0.4
+pip install numpy scipy pillow   # audio/ and scripts/ helpers
+```
+
+- **Keep `@react-three/postprocessing` at 3.0.4.** From 3.0.5 on, `EffectComposer` builds its composer inside an effect. Remotion advances each frame once, before that composer exists, so every frame renders as an empty canvas: just the `#cfe3f2` background, with no error. Before you upgrade, check that a still is not one flat colour.
+- `three` must stay below 0.188 (the `postprocessing@6.39` peer range), and `react` below 19.4 (the `@react-three/fiber@9` peer range).
+- **Props:** `world.ts` loads 26 Kenney CC0 models from `public/bridge/kenney/<name>.glb`. A missing model is skipped silently, so the trees and stalls just disappear.
+  - From the [Nature Kit](https://kenney.nl/assets/nature-kit) (`Models/GLTF format/`): `tree_oak tree_default tree_detailed tree_fat tree_cone plant_bushLarge plant_bushDetailed plant_bush flower_redA flower_yellowA flower_purpleA grass_large grass lily_large canoe`
+  - From the [Fantasy Town Kit](https://kenney.nl/assets/fantasy-town-kit) (`Models/GLB format/`): `tree-high-round tree hedge lantern cart stall-red stall-green stall-bench banner-red banner-green windmill`, plus `Textures/colormap.png` copied to `public/bridge/kenney/Textures/`, because these models reference that texture.
+- **macOS / Linux:** `scripts/bridge-stills.mjs` uses Remotion's own Chrome Headless Shell unless you set `REMOTION_BROWSER`. Set `BRIDGE_COMP=<CompositionId>` once you rename the composition.
+
 Claude then follows `SKILL.md`: topic and facts, then script, then voice, then the shot plan in `story.ts`, then stills, then renders. Agents check your frames against the reports and the frames, and you get the final 2K render and sound mix.
 
 ## Notes
