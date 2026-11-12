@@ -40,6 +40,7 @@ User rules that apply:
    - **Callback twist:** the ending.
    - Never describe on screen what the viewer already sees.
 3. **Voice.** Record or generate `voice.wav`, then make its word timings `words.json` (any speech-to-text with word times).
+   - For ElevenLabs narration with audio tags + `<break>` pauses, see the voice module below — it also covers the alignment quirk (ellipses stored as commas) that breaks punctuation-only sentence detection.
    - Put them in the project folder, e.g. `~/bridge-short/voice/`.
    - Hand-fix the word timings. Everything is timed to words.json.
 4. **Shot plan** in `story.ts`: copy `templates/bridge/` (the final bridge source, same as `src/videos/bridge/` of your Remotion project) to `src/videos/<name>/`, register a new composition next to `BridgeShort` in `src/Root.tsx`, and rename it.
@@ -75,9 +76,75 @@ User rules that apply:
 10. **Final render.**
     - `npx remotion render src/index.ts <Comp> out/<name>/video.mp4 --codec h264 --crf 16 --scale 1.3333`
     - Mux with `-map 0:v:0 -map 1:a:0` (Remotion writes a silent audio track).
+    - **Before the final render:** run the frame-review loop (extract 1-3 frames per scene and look at every one). For caption channels also see the SFX-only mix, thumbnail (portada) and frame-review modules below.
     - QA: `python scripts/short_qa.py final.mp4 out/<name>/qa shots.json` checks every frame for black, white, frozen and pop frames, plus loudness and sheets.
     - Fix anything it finds, then run a deep Opus audit.
 11. **Deliver.** SendUserFile the final mp4, update memory, write notes.
+
+## Optional: caption-channel modules (voice tags, synced captions, SFX-only mix, thumbnail)
+
+The bridge rules above (no captions, English only) belong to that channel. Other channels run with
+word-synced captions and non-English narration. Proven on a Spanish zombie-survival short ("TORRE 12",
+1080x1920, word-synced selection-box captions, SFX-only mix). Add these modules when the channel wants them.
+
+### Voice with ElevenLabs audio tags + pauses
+- Write the script with English behaviour tags around Spanish (or any language) sentences:
+  `[narration] Si el apocalipsis zombi te sorprende... <break time="0.5s" /> no corras al bosque.`
+- Tags the model understands: `[narration] [tense] [serious] [curious] [calm] [tense]`. Breaks carry the pacing,
+  so write short sentences and put a `<break>` wherever the story should breathe.
+- Generate the word timings from the same platform's alignment (or any STT with word times). Store one flat array:
+  `{ duracion, palabras: [{ texto, ini, fin, frase }] }` where `frase` groups words into narration beats.
+- **Alignment quirk:** ElevenLabs stores "..." ellipses as commas ("vigilancia,"). Never rely on punctuation alone
+  to find sentence ends — see the pause-gap rule below.
+
+### Scene timing derived from words.json (never hand-time scenes)
+- Compute each beat's window from its words: `start = max(0.05, words[0].ini - 0.25)`, `end = words[-1].fin + 0.35`.
+- Enforce monotonic windows (`start[i] >= end[i-1] + 0.04`); the first scene starts at 0.04.
+- Every scene receives `desde` = its global start time so caption sync survives Remotion `<Sequence>` offsets.
+- If timings change later, scenes and captions re-derive automatically; only SFX anchors need re-checking.
+
+### Word-synced captions (ref2 "selection box" look)
+- One caption line per **sentence**, not per beat. Split on sentence punctuation **or a pause gap > 0.3 s**
+  between consecutive words (catches the comma-for-ellipsis quirk and read like the reference style).
+- Words not yet spoken: grey `#8a93a5`. As each word is spoken it lerps to white `#f4f7fb` over ~90 ms.
+  "Destaca" keywords recolour after being spoken (rojo `#e0472e`, dorado `#e9b45c`).
+- The blue selection box (4 px `#3b82f6` border, 14 px radius, `rgba(59,130,246,0.10)` fill, 4 white corner
+  handles) sits on **only the last word spoken so far**, and only while `t < word.fin + 0.25`.
+- Inside a Remotion `<Sequence>`, compute `t = frame / fps + desde`. Never trust `useCurrentFrame()` alone.
+- **Colour-lerp trap:** a hex lerp helper with channels read as `[0,8,16]` shifts bits the wrong way and turns
+  white→red into white→blue. Channel shifts are `[16,8,0]` (R>>16, G>>8, B). Verify one destaca word on a
+  rendered frame before mass-rendering.
+- Captions overlap the sky/moon in the reference style — that is fine; captions over a face are not.
+
+### Character close-up trap (the "half a face" bug)
+- On big close-ups it is tempting to offset facial features for a profile look. If eyes/brows/mouth are drawn
+  past the head circle's edge the face reads as sliding off the head. Keep every feature inside ~0.9 r of the
+  head centre, centre the torso under the head, and check the rendered frame at full size, not in code.
+
+### SFX-only mix (no BGM) and final mux
+- Anchor every SFX to a word or scene time (e.g. notification exactly on "alerta", error tone on "Error.").
+- Mono/stereo-safe placement: `[i:a]volume=0.4,adelay=16150:all=1[s2]`, then
+  `amix=inputs=N:normalize=0` (normalization would squash the voice under many inputs).
+- Mux with the picture and pad the voice track:
+  `ffmpeg -i video.mp4 -i voz.wav -filter_complex "[1:a]apad[a]" -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k -t 72 out.mp4`
+- Verify with `ffmpeg volumedetect` on a window around each SFX time vs a quiet window: the SFX window should
+  clearly beat the quiet one (e.g. mean −9.5 dB vs −18 dB), and the quiet window should still show the voice.
+- Openverse/CC0 SFX are fine; keep the `CREDITS.md` beside them and tell the user to credit CC BY items in the
+  video description.
+
+### Thumbnail (portada)
+- Captions are baked into every spoken frame, so grab the thumbnail with captions suppressed: add a code flag
+  (`const SIN_SUBS = false`) that the caption component checks, render a single frame with
+  `npx remotion still src/index.ts <Comp> --frame=<F> --output portada.png`, then flip the flag back.
+- `process.env` does **not** reach Remotion's render workers from a PowerShell one-liner — use a code constant.
+- Pick the frame on a mid-scene beat with the hero prop centred (a tower, a face, the snap moment). Frames in
+  crossfade gaps render black.
+
+### Frame-review loop (mandatory before delivering)
+- Render the silent picture first, then extract 1-3 frames per scene with ffmpeg (`-ss <t> -frames:v 1`) at
+  sentence mid-points, and **look at every frame**. Fix everything found, re-render, re-extract with a new
+  prefix (`f_` → `g_` → `k_`), re-check. Two to three passes is normal.
+- Re-mux audio only after the last picture change; check one frame per fixed scene plus caption-split moments.
 
 ## Final look values (bridge after 4 verifier rounds; all in `templates/bridge/`)
 Start every new short from `templates/bridge/` (copy to `src/videos/<name>/`): the look lives in these values, the
@@ -152,6 +219,9 @@ lighting 5-6, ink 6, textures 5-6, characters 7, depth 6-7, composition 6-7 (fro
 - Scratch `.ts` files inside `out/` break `tsc`: name them `.txt`.
 - 2K renders run ~4 fps (≈10 min for 67 s). Stills at 0.5 take 3-8 s each after a ~40 s bundle.
 - Film grain at 2.5 % made the 2K file 910 MB instead of ~250 MB and will turn to mush on YouTube; the reference has none. Keep it off.
+- **Windows/PowerShell:** the Unix patterns above need translating. `export X=...` → `$env:X = "..."` (persists for the session), `cp -f` → `Copy-Item -Force`, `/tmp` → `$env:TEMP`. Setting TEMP for Remotion on Windows: `$env:TEMP = "D:\remotion-tmp"; $env:TMP = $env:TEMP` before the render.
+- The console mangles backticks and some quoting when passing code inline: for JSON edits (words.json, tiempos.json) or any script with backticks, write a temp `.py`/`.js` file and run it instead of an inline one-liner.
+- The file-edit tool needs an explicit `path` parameter on Windows; relative paths from the shell's CWD can miss.
 
 ## Readability traps the verifier caught (check every new prop/shot for these)
 - **A swing drawn as one rope that disappears behind the kid reads as a HANGING.** Always two ropes to a wide plank
@@ -164,3 +234,6 @@ lighting 5-6, ink 6, textures 5-6, characters 7, depth 6-7, composition 6-7 (fro
 - Golden rim light done as an offset outer copy turns every hat into a picture frame: inner rim only, head/torso only.
 - Balcony/railing rails at chest height through characters: put the lens ~2.5 m up so rails cross legs, not torsos.
 - Flat holds read as freezes in QA (frozen span ≥12 f): every hold needs a creeping push-in.
+- **Close-up "half a face":** facial features drawn past the head circle's edge read as the face sliding off the
+  head (a character "lost half a face" on a 2D-card close-up). Every feature stays inside ~0.9 r of the head
+  centre and the torso sits centred under the head — details in the caption-channel modules section.
